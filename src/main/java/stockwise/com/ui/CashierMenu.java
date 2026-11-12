@@ -24,7 +24,7 @@ public class CashierMenu {
         boolean running = true;
         while (running) {
             System.out.println("\n========== CASHIER PORTAL ==========");
-            System.out.println("Welcome, " + currentUser.fullName() + "!");
+            System.out.println("Welcome, " + currentUser.fullName() + " (ID: " + currentUser.userId() + ")!");
             System.out.println("[1] View Product Catalog & Prices");
             System.out.println("[2] Process Sale / Stock-Out Transaction");
             System.out.println("[3] Logout");
@@ -35,6 +35,9 @@ public class CashierMenu {
                 case "1" -> viewProducts();
                 case "2" -> processSale();
                 case "3" -> {
+                    // Deliverable 8 Trigger 1: Logout Logging
+                    logDao.logAction(currentUser.userId(), "USER_LOGOUT",
+                            "User " + currentUser.username() + " (ID: " + currentUser.userId() + ") logged out.");
                     running = false;
                     System.out.println("Logging out from Cashier portal.");
                 }
@@ -54,7 +57,7 @@ public class CashierMenu {
         System.out.printf("| %-2s | %-20s | %-13s | %-10s | %-8s |\n", "ID", "Product Name", "Category", "Price", "Stock");
         System.out.println("+----+----------------------+---------------+------------+----------+");
         for (Product p : products) {
-            System.out.printf("| %-2d | %-20s | %-13s | $%-9.2f | %-8d |\n",
+            System.out.printf("| %-2d | %-20s | %-13s | P%-9.2f | %-8d |\n",
                     p.productId(), p.productName(), p.category(), p.price(), p.quantity());
         }
         System.out.println("+----+----------------------+---------------+------------+----------+");
@@ -94,15 +97,11 @@ public class CashierMenu {
 
         if (updated) {
             double totalAmount = targetProduct.price() * qtyToSell;
-            System.out.printf("Sale successful! Total Amount: $%.2f\n", totalAmount);
+            System.out.printf("Sale successful! Total Amount: P%.2f\n", totalAmount);
 
-            // Fixed: Passes all 4 required arguments (userId, actionType, description, affectedRecordId)
-            logDao.logAction(
-                    currentUser.userId(),
-                    "SALE",
-                    "Sold " + qtyToSell + " unit(s) of " + targetProduct.productName(),
-                    targetProduct.productId()
-            );
+            // Deliverable 8 Trigger 3: Core Business Process Auto-Log
+            logDao.logAction(currentUser.userId(), "SALE_PROCESSED",
+                    String.format("Processed sale: Sold %d unit(s) of %s - Total: P%.2f", qtyToSell, targetProduct.productName(), totalAmount));
         } else {
             System.out.println("Failed to process sale transaction.");
         }

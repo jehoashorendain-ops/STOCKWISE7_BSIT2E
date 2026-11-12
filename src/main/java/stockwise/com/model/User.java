@@ -6,5 +6,5 @@ public record User(
         String password,
         String fullName,
         String role,
-        String accountStatus
+        String status
 ) {}

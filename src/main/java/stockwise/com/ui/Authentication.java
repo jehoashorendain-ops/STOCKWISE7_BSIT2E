@@ -8,10 +8,12 @@ import java.util.Scanner;
 
 public class Authentication {
     private final UserDAO userDao;
+    private final ActivityLogDAO logDao;
     private final Scanner scanner;
 
     public Authentication(UserDAO userDao, Scanner scanner) {
         this.userDao = userDao;
+        this.logDao = new ActivityLogDAO();
         this.scanner = scanner;
     }
 
@@ -33,7 +35,7 @@ public class Authentication {
                     running = false;
                     System.out.println("Exiting StockWise. Goodbye!");
                 }
-                default -> System.out.println("Invalid option. Please try again.");
+                default -> System.out.println("Invalid option. Please enter 1, 2, or 3.");
             }
         }
     }
@@ -49,9 +51,9 @@ public class Authentication {
         if (user != null) {
             System.out.println("\nLogin successful! Welcome, " + user.fullName() + " (" + user.role() + ")");
 
-            // Automatically record login action with 24-hour military timestamp
-            ActivityLogDAO logDao = new ActivityLogDAO();
-            logDao.logAction(user.userId(), "USER_LOGIN", "User logged into the system", user.userId());
+            // Deliverable 8 Trigger 1: Automatic Login Logging
+            logDao.logAction(user.userId(), "USER_LOGIN",
+                    "User " + user.username() + " (ID: " + user.userId() + ") logged in.");
 
             routeToRoleMenu(user);
         } else {
@@ -124,19 +126,18 @@ public class Authentication {
             }
             case "MANAGER", "INVENTORY_STAFF" -> {
                 ProductDAO productDao = new ProductDAO();
-                InventoryMenu invMenu = new InventoryMenu(productDao, scanner);
+                InventoryMenu invMenu = new InventoryMenu(productDao, logDao, scanner, user);
                 invMenu.show();
+            }
+            case "CASHIER" -> {
+                ProductDAO productDao = new ProductDAO();
+                CashierMenu cashierMenu = new CashierMenu(productDao, logDao, scanner, user);
+                cashierMenu.show();
             }
             case "CUSTOMER" -> {
                 ProductDAO productDao = new ProductDAO();
                 CustomerMenu custMenu = new CustomerMenu(productDao, scanner, user);
                 custMenu.show();
-            }
-            case "CASHIER" -> {
-                ProductDAO productDao = new ProductDAO();
-                ActivityLogDAO logDao = new ActivityLogDAO();
-                CashierMenu cashierMenu = new CashierMenu(productDao, logDao, scanner, user);
-                cashierMenu.show();
             }
             default -> System.out.println("Role dashboard under development.");
         }

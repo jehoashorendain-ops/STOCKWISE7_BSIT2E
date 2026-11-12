@@ -2,30 +2,24 @@ package stockwise.com.dao;
 
 import stockwise.com.model.ActivityLog;
 import java.sql.*;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ActivityLogDAO {
 
     /**
-     * Records an activity log using a 24-hour military timestamp format (e.g., 2026-06-11 14:00:00).
+     * Inserts a new log entry using SQLite's built-in 24-hour CURRENT_TIMESTAMP (localtime).
      */
-    public boolean logAction(int userId, String actionType, String actionDescription, int affectedRecordId) {
-        String militaryTimestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-
-        String sql = "INSERT INTO Activity_Logs (user_id, action_type, action_description, timestamp, affected_record_id) " +
-                "VALUES (?, ?, ?, ?, ?)";
+    public boolean logAction(int userId, String actionType, String description) {
+        String sql = "INSERT INTO activity_logs (user_id, action_type, description, timestamp) " +
+                "VALUES (?, ?, ?, datetime('now', 'localtime'))";
 
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, userId);
             pstmt.setString(2, actionType.toUpperCase());
-            pstmt.setString(3, actionDescription);
-            pstmt.setString(4, militaryTimestamp);
-            pstmt.setInt(5, affectedRecordId);
+            pstmt.setString(3, description);
 
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -35,11 +29,11 @@ public class ActivityLogDAO {
     }
 
     /**
-     * Retrieves all activity logs ordered from newest to oldest.
+     * Returns all recorded actions ordered by newest timestamp first.
      */
     public List<ActivityLog> getAllLogs() {
         List<ActivityLog> logs = new ArrayList<>();
-        String sql = "SELECT * FROM Activity_Logs ORDER BY timestamp DESC, log_id DESC";
+        String sql = "SELECT * FROM activity_logs ORDER BY timestamp DESC, id DESC";
 
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -47,17 +41,60 @@ public class ActivityLogDAO {
 
             while (rs.next()) {
                 logs.add(new ActivityLog(
-                        rs.getInt("log_id"),
+                        rs.getInt("id"),
                         rs.getInt("user_id"),
                         rs.getString("action_type"),
-                        rs.getString("action_description"),
-                        rs.getString("timestamp"),
-                        rs.getInt("affected_record_id")
+                        rs.getString("description"),
+                        rs.getString("timestamp")
                 ));
             }
         } catch (SQLException e) {
             System.err.println("Error fetching activity logs: " + e.getMessage());
         }
         return logs;
+    }
+
+    /**
+     * Filters and returns logs for a specific user ID.
+     */
+    public List<ActivityLog> getLogsByUserId(int userId) {
+        List<ActivityLog> logs = new ArrayList<>();
+        String sql = "SELECT * FROM activity_logs WHERE user_id = ? ORDER BY timestamp DESC, id DESC";
+
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    logs.add(new ActivityLog(
+                            rs.getInt("id"),
+                            rs.getInt("user_id"),
+                            rs.getString("action_type"),
+                            rs.getString("description"),
+                            rs.getString("timestamp")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error filtering activity logs: " + e.getMessage());
+        }
+        return logs;
+    }
+
+    /**
+     * Safely clears historical logs from the database.
+     */
+    public boolean clearLogs() {
+        String sql = "DELETE FROM activity_logs";
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error clearing activity logs: " + e.getMessage());
+            return false;
+        }
     }
 }
